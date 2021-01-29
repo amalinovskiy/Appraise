@@ -15,13 +15,14 @@
         source ~/.virtualenv/django2/bin/activate
         pip3 install -r requirements.txt
 
-5. Create database, the first super user, and collect static files:
+5. Create database, the first super user. Follow instructions on your screen; do not leave the password empty:
 
         python manage.py migrate
         python manage.py createsuperuser
-        python manage.py collectstatic
 
-    Follow instructions on your screen; do not leave the password empty.
+6. collect static files:
+
+        python manage.py collectstatic
 
 6. Run the app on a local server:
 
