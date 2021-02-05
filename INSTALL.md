@@ -24,7 +24,7 @@
 
         python manage.py collectstatic
 
-6. Run the app on a local server:
+7. Run the app on a local server:
 
         python manage.py runserver
 
