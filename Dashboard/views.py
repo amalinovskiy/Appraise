@@ -30,7 +30,8 @@ from EvalData.models import (
     PairwiseAssessmentTask,
     PairwiseAssessmentResult,
     TaskAgenda,
-)
+    DirectAssessmentWithErrorAnnotationTask,
+    DirectAssessmentWithErrorAnnotationResult)
 
 # TODO: move task definition to models so that they can be used
 # elsewhere in the codebase
@@ -41,6 +42,12 @@ TASK_DEFINITIONS = (
         DirectAssessmentTask,
         DirectAssessmentResult,
         'direct-assessment',
+    ),
+    (
+        'directwitherrors',
+        DirectAssessmentWithErrorAnnotationTask,
+        DirectAssessmentWithErrorAnnotationResult,
+        'direct-assessment-with-error-annotation',
     ),
     (
         'context',
@@ -366,19 +373,6 @@ def dashboard(request):
         if not current_task:
             current_task = task_cls.get_task_for_user(request.user)
 
-        # Check if marketTargetLanguage for current_task matches user languages.
-        if current_task:
-            code = current_task.marketTargetLanguageCode()
-            print('  User groups:', request.user.groups.all())
-            if code not in request.user.groups.values_list('name', flat=True):
-                _msg = (
-                    'Language %s not specified for user %s. Giving up task %s'
-                )
-                LOGGER.info(_msg, code, request.user.username, current_task)
-
-                current_task.assignedTo.remove(request.user)
-                current_task = None
-
     print('  Current task: {0}'.format(current_task))
 
     _t2 = datetime.now()
@@ -431,10 +425,6 @@ def dashboard(request):
             if request.user.groups.filter(name=code).exists():
                 if not code in languages:
                     languages.append(code)
-
-        if hits < HITS_REQUIRED_BEFORE_ENGLISH_ALLOWED:
-            if len(languages) > 1 and 'eng' in languages:
-                languages.remove('eng')
 
         # Remove any language for which no free task is available.
         from Campaign.models import Campaign

@@ -17,7 +17,7 @@
           <div class="panel-body">
 {% if current_task %}
             <h3>Current HIT</h3>
-            <p>Continue annotation for <a href="{% url current_url %}">{{current_task.campaign}}:{{current_task.marketTargetLanguage}}</a>.</p>
+            <p>Continue annotation for <a href="{% url current_url %}">{{current_task.campaign}}</a>.</p>
 {% elif all_languages %}
     {% for _, languages in all_languages.items %}
     {% if languages %}

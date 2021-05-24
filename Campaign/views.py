@@ -18,6 +18,7 @@ from Campaign.utils import _get_campaign_instance
 from EvalData.models import (
     DataAssessmentResult,
     DirectAssessmentResult,
+    DirectAssessmentWithErrorAnnotationResult,
     DirectAssessmentContextResult,
     DirectAssessmentDocumentResult,
     MultiModalAssessmentResult,
@@ -28,6 +29,7 @@ from EvalData.models import (
 RESULT_TYPE_BY_CLASS_NAME = {
     'DataAssessmentTask': DataAssessmentResult,
     'DirectAssessmentTask': DirectAssessmentResult,
+    'DirectAssessmentWithErrorAnnotationTask': DirectAssessmentWithErrorAnnotationResult,
     'DirectAssessmentContextTask': DirectAssessmentContextResult,
     'DirectAssessmentDocumentTask': DirectAssessmentDocumentResult,
     'MultiModalAssessmentTask': MultiModalAssessmentResult,

@@ -18,6 +18,7 @@ from Dashboard.models import (
 from EvalData.models import (
     DataAssessmentTask,
     DirectAssessmentTask,
+    DirectAssessmentWithErrorAnnotationTask,
     DirectAssessmentContextTask,
     DirectAssessmentDocumentTask,
     MultiModalAssessmentTask,
@@ -32,6 +33,7 @@ from EvalData.models import (
 CAMPAIGN_TASK_TYPES = {
     'Data': DataAssessmentTask,
     'Direct': DirectAssessmentTask,
+    'DirectWithErrors': DirectAssessmentWithErrorAnnotationTask,
     'DocLevelDA': DirectAssessmentContextTask,
     'Document': DirectAssessmentDocumentTask,
     'MultiModal': MultiModalAssessmentTask,

@@ -6,100 +6,27 @@ See LICENSE for usage details
 # pylint: disable=C0103,C0330,no-member
 from collections import defaultdict
 from json import loads
-from zipfile import is_zipfile
 from zipfile import ZipFile
+from zipfile import is_zipfile
 
-from django.db import models
 from django.contrib.auth.models import User
+from django.db import models
 from django.utils.text import format_lazy as f
 from django.utils.translation import ugettext_lazy as _
 
-# TODO: Unclear if these are needed?
-# from Appraise.settings import STATIC_URL, BASE_CONTEXT
 from Appraise.utils import _get_logger
-from Dashboard.models import LANGUAGE_CODES_AND_NAMES
-from EvalData.models.base_models import AnnotationTaskRegistry
+from EvalData.models import LANGUAGE_CODES_AND_NAMES, TextPairWithDomain
+from EvalData.models.base_models import AnnotationTaskRegistry, MAX_REQUIREDANNOTATIONS_VALUE
 from EvalData.models.base_models import BaseMetadata
-from EvalData.models.base_models import MAX_REQUIREDANNOTATIONS_VALUE
-from EvalData.models.base_models import MAX_SEGMENTID_LENGTH
-from EvalData.models.base_models import MAX_SEGMENTTEXT_LENGTH
 from EvalData.models.base_models import seconds_to_timedelta
-from EvalData.models.base_models import TextPair
 
 LOGGER = _get_logger(name=__name__)
 
 
-class TextPairWithDomain(TextPair):
-    """
-    Models a pair of two multi-line text segments with domain and URL.
-    """
-    SENTENCE_DELIMITER = '\n'
-
-    documentDomain = models.CharField(
-      max_length=MAX_SEGMENTID_LENGTH,
-      verbose_name=_('Domain'),
-      help_text=_(f('(max. {value} characters)',
-        value=MAX_SEGMENTID_LENGTH))
-    )
-
-    sourceURL = models.TextField(
-      blank=True,
-      verbose_name=_('Source URL'),
-    )
-
-    targetURL = models.TextField(
-      blank=True,
-      verbose_name=_('Target URL'),
-    )
-
-    def get_sentence_pairs(self):
-        """
-        Returns pairs of source and target sentences created from source
-        and target segments.
-        """
-        return zip(self.sourceText.split(self.SENTENCE_DELIMITER),
-                   self.targetText.split(self.SENTENCE_DELIMITER))
-
-    # pylint: disable=E1101
-    def is_valid(self):
-        """
-        Validates the current TextPairWithDomain instance, checking text.
-        """
-        if isinstance(self.sourceText, type('This is a test sentence.')):
-            return False
-
-        _len = len(self.sourceText)
-        if _len < 1 or _len > MAX_SEGMENTTEXT_LENGTH:
-            return False
-
-        if isinstance(self.targetText, type('This is a test sentence.')):
-            return False
-
-        _len = len(self.targetText)
-        if _len < 1 or _len > MAX_SEGMENTTEXT_LENGTH:
-            return False
-
-        # Check if multi-line segments are of the same length
-        _src_segs = self.sourceText.strip().split(self.SENTENCE_DELIMITER)
-        _tgt_segs = self.targetText.strip().split(self.SENTENCE_DELIMITER)
-        if len(_src_segs) != len(_tgt_segs):
-            return False
-
-        _len = len(self.sourceURL)
-        if _len < 1 or _len > MAX_SEGMENTTEXT_LENGTH:
-            return False
-
-        _len = len(self.targetURL)
-        if _len < 1 or _len > MAX_SEGMENTTEXT_LENGTH:
-            return False
-
-        return super(TextPairWithDomain, self).is_valid()
-
-
 @AnnotationTaskRegistry.register
-class DataAssessmentTask(BaseMetadata):
+class DirectAssessmentWithErrorAnnotationTask(BaseMetadata):
     """
-    Models a direct data assessment evaluation task.
+    Models a direct assessment evaluation task.
     """
     campaign = models.ForeignKey(
       'Campaign.Campaign',
@@ -180,7 +107,7 @@ class DataAssessmentTask(BaseMetadata):
         return None
 
     def completed_items_for_user(self, user):
-        results = DataAssessmentResult.objects.filter(
+        results = DirectAssessmentWithErrorAnnotationResult.objects.filter(
           task=self,
           activated=False,
           completed=True,
@@ -190,12 +117,8 @@ class DataAssessmentTask(BaseMetadata):
         return len(set(results))
 
     def is_trusted_user(self, user):
-        # Appen crowd users are never trusted!
-        if user.groups.filter(name='Appen').exists():
-            return False
-
         from Campaign.models import TrustedUser
-        trusted_user = TrustedUser.objects.filter(\
+        trusted_user = TrustedUser.objects.filter(
           user=user, campaign=self.campaign
         )
         return trusted_user.exists()
@@ -206,7 +129,7 @@ class DataAssessmentTask(BaseMetadata):
         next_item = None
         completed_items = 0
         for item in self.items.all().order_by('id'):
-            result = DataAssessmentResult.objects.filter(
+            result = DirectAssessmentWithErrorAnnotationResult.objects.filter(
               item=item,
               activated=False,
               completed=True,
@@ -217,26 +140,21 @@ class DataAssessmentTask(BaseMetadata):
                 print('identified next item: {0}/{1} for trusted={2}'.format(
                   item.id, item.itemType, trusted_user
                 ))
-                if not trusted_user or item.itemType == 'TGT':
-                    next_item = item
-                    break
+                next_item = item
+                break
 
             completed_items += 1
 
         if not next_item:
             LOGGER.info('No next item found for task {0}'.format(self.id))
-            annotations = DataAssessmentResult.objects.filter(
+            annotations = DirectAssessmentWithErrorAnnotationResult.objects.filter(
               task=self,
               activated=False,
               completed=True
             ).values_list('item_id', flat=True)
             uniqueAnnotations = len(set(annotations))
 
-            required_user_results = 100
-            if trusted_user:
-                required_user_results = 70
-
-            _total_required = self.requiredAnnotations * required_user_results
+            _total_required = self.requiredAnnotations
             LOGGER.info(
               'Unique annotations={0}/{1}'.format(
                 uniqueAnnotations,
@@ -247,10 +165,6 @@ class DataAssessmentTask(BaseMetadata):
                 LOGGER.info('Completing task {0}'.format(self.id))
                 self.complete()
                 self.save()
-
-                # Not sure why I would complete the batch here?
-                # self.batchData.complete()
-                # self.batchData.save()
 
         if return_completed_items:
             return (next_item, completed_items)
@@ -283,64 +197,11 @@ class DataAssessmentTask(BaseMetadata):
               campaign=campaign
             )
 
-            # Appen crowd users may only contribute three HITs per campaign.
-            if user.groups.filter(name='Appen').exists():
-                completed_items = DataAssessmentResult.objects.filter(
-                  activated=False,
-                  completed=True,
-                  createdBy=user,
-                  task__campaign=campaign,
-                ).values_list('item_id', 'task_id')
-
-                completed_tasks = defaultdict(list)
-                for item in completed_items:
-                    completed_tasks[item[1]].append(item[0])
-
-                validated_tasks = 0
-                for task_id in completed_tasks:
-                    if len(completed_tasks[task_id]) >= 100:
-                        validated_tasks += 1
-
-                if validated_tasks >= 3:
-                    _msg = 'User {0} has already completed {1} tasks and ' \
-                      'created {2} results for campaign {3}'.format(
-                      user.username,
-                      validated_tasks,
-                      len(completed_items),
-                      campaign.campaignName
-                    )
-                    LOGGER.info(_msg)
-                    return None
-
         for active_task in active_tasks.order_by('id'):
             active_users = active_task.assignedTo.count()
             if active_users < active_task.requiredAnnotations:
                 if user and not user in active_task.assignedTo.all():
                     return active_task
-
-        return None
-
-        # It seems that assignedTo is converted to an integer count.
-        active_tasks = active_tasks.order_by('id') \
-         .values_list('id', 'requiredAnnotations', 'assignedTo')
-
-        for active_task in active_tasks:
-            print(active_task)
-            active_users = active_task[2] or 0
-            if active_users < active_task[1]:
-                return cls.objects.get(pk=active_task[0])
-
-        return None
-
-        # TODO: this needs to be removed.
-        for active_task in active_tasks:
-            market = active_task.items.first().metadata.market
-            if not market.targetLanguageCode == code:
-                continue
-
-            active_users = active_task.assignedTo.count()
-            if active_users < active_task.requiredAnnotations:
-                return active_task
 
         return None
 
@@ -351,95 +212,52 @@ class DataAssessmentTask(BaseMetadata):
     @classmethod
     def import_from_json(cls, campaign, batch_user, batch_data, max_count):
         """
-        Creates new DataAssessmentTask instances based on JSON input.
+        Creates new DirectAssessmentWithErrorAnnotationTask instances based on JSON input.
         """
         batch_meta = batch_data.metadata
         batch_name = batch_data.dataFile.name
         batch_file = batch_data.dataFile
-        batch_json = None
-
-        if batch_name.endswith('.zip'):
-            if not is_zipfile(batch_file):
-                _msg = 'Batch {0} not a valid ZIP archive'.format(batch_name)
-                LOGGER.warn(_msg)
-                return
-
-            batch_zip = ZipFile(batch_file)
-            batch_json_files = [
-                x for x in batch_zip.namelist() if x.endswith('.json')]
-            # TODO: implement proper support for multiple json files in archive.
-            for batch_json_file in batch_json_files:
-                batch_content = batch_zip.read(batch_json_file).decode('utf-8')
-                batch_json = loads(batch_content, encoding='utf-8')
-
-        else:
-            batch_json = loads(str(batch_file.read(), encoding="utf-8"))
+        batch_json = loads(str(batch_file.read(), encoding="utf-8"))
 
         from datetime import datetime
         t1 = datetime.now()
 
         current_count = 0
-        max_length_id = 0
-        max_length_text = 0
         for batch_task in batch_json:
-            if max_count > 0 and current_count >= max_count:
+            if 0 < max_count <= current_count:
                 _msg = 'Stopping after max_count={0} iterations'.format(
                   max_count
                 )
                 LOGGER.info(_msg)
-                print(_msg)
 
                 t2 = datetime.now()
                 print(t2-t1)
                 return
 
-            print('Batch name/no:', batch_name, batch_task['task']['batchNo'])
+            print(batch_name, batch_task['task']['batchNo'])
 
             new_items = []
             for item in batch_task['items']:
-                current_length_id = len(item['targetID'])
-                current_length_text = len(item['targetText'])
-
-                if current_length_id > max_length_id:
-                    print('Longest target ID', current_length_id, item['targetID'])
-                    max_length_id = current_length_id
-
-                if current_length_text > max_length_text:
-                    print('Longest targetText', current_length_text, item['targetText'].encode('utf-8'))
-                    max_length_text = current_length_text
-
                 new_item = TextPairWithDomain(
                     sourceID=item['sourceID'],
                     sourceText=item['sourceText'],
+                    sourceURL=item['sourceURL'],
                     targetID=item['targetID'],
                     targetText=item['targetText'],
+                    targetURL=item['targetURL'],
                     createdBy=batch_user,
                     itemID=item['itemID'],
-                    itemType=item['itemType'],
-                    documentDomain=item['documentDomain'],
-                    sourceURL=item['sourceURL'],
-                    targetURL=item['targetURL']
+                    itemType=item['itemType']
                 )
                 new_items.append(new_item)
-
-            if not len(new_items) == 100:
-                _msg = 'Expected 100 items for task but found {0}'.format(
-                    len(new_items)
-                )
-                LOGGER.warn(_msg)
-                print(_msg)
-                continue
 
             current_count += 1
 
 
-            #for new_item in new_items:
-            #    new_item.metadata = batch_meta
-            #    new_item.save()
             batch_meta.textpair_set.add(*new_items, bulk=False)
             batch_meta.save()
 
-            new_task = DataAssessmentTask(
+            new_task = DirectAssessmentWithErrorAnnotationTask(
                 campaign=campaign,
                 requiredAnnotations=batch_task['task']['requiredAnnotations'],
                 batchNo=batch_task['task']['batchNo'],
@@ -447,23 +265,14 @@ class DataAssessmentTask(BaseMetadata):
                 createdBy=batch_user,
             )
             new_task.save()
-
-            #for new_item in new_items:
-            #    new_task.items.add(new_item)
-            new_task.save()
             new_task.items.add(*new_items)
+            new_task.save()
+            new_task.activate()
 
             _msg = 'Success processing batch {0}, task {1}'.format(
                 str(batch_data), batch_task['task']['batchNo']
             )
             LOGGER.info(_msg)
-            print(_msg)
-
-        _msg = 'Max length ID={0}, text={1}'.format(
-          max_length_id, max_length_text
-        )
-        LOGGER.info(_msg)
-        print(_msg)
 
         t2 = datetime.now()
         print(t2-t1)
@@ -471,7 +280,7 @@ class DataAssessmentTask(BaseMetadata):
     # pylint: disable=E1101
     def is_valid(self):
         """
-        Validates the current DA task, checking campaign and items exist.
+        Validates the current task, checking campaign and items exist.
         """
         if not hasattr(self, 'campaign') or not self.campaign.is_valid():
             return False
@@ -493,20 +302,18 @@ class DataAssessmentTask(BaseMetadata):
         )
 
 
-class DataAssessmentResult(BaseMetadata):
+class DirectAssessmentWithErrorAnnotationResult(BaseMetadata):
     """
-    Models a direct data assessment evaluation result.
+    Models a direct assessment evaluation result.
     """
     score = models.PositiveSmallIntegerField(
       verbose_name=_('Score'),
       help_text=_('(value in range=[1,100])')
     )
 
-    rank = models.PositiveSmallIntegerField(
-      blank=True,
-      null=True,
-      verbose_name=_('Score'),
-      help_text=_('(value in range=[1,100])')
+    errors = models.TextField(
+        verbose_name=_('Words with Errors'),
+        help_text=_('(0 based word indexes of errors)')
     )
 
     start_time = models.FloatField(
@@ -529,7 +336,7 @@ class DataAssessmentResult(BaseMetadata):
     )
 
     task = models.ForeignKey(
-      DataAssessmentTask,
+      DirectAssessmentWithErrorAnnotationTask,
       blank=True,
       db_index=True,
       null=True,
@@ -608,18 +415,16 @@ class DataAssessmentResult(BaseMetadata):
             completed=True, item__itemType__in=value_types)
 
         value_names = (
-            'item__targetID', 'score', 'rank', 'createdBy',
-            'item__itemID',
+            'item__targetID', 'score', 'createdBy', 'item__itemID',
             'item__metadata__market__sourceLanguageCode',
             'item__metadata__market__targetLanguageCode'
         )
         for result in qs.values_list(*value_names):
             systemID = result[0]
             score = result[1]
-            rank = result[2]
-            annotatorID = result[3]
-            segmentID = result[4]
-            marketID = '{0}-{1}'.format(result[5], result[6])
+            annotatorID = result[2]
+            segmentID = result[3]
+            marketID = '{0}-{1}'.format(result[4], result[5])
             system_scores[marketID].append(
                 (systemID, annotatorID, segmentID, score))
 
@@ -663,7 +468,6 @@ class DataAssessmentResult(BaseMetadata):
 
         return group_hits
 
-
     @classmethod
     def dump_all_results_to_csv_file(cls, csv_file):
         from Dashboard.models import LANGUAGE_CODES_AND_NAMES
@@ -672,17 +476,17 @@ class DataAssessmentResult(BaseMetadata):
         qs = cls.objects.filter(completed=True)
 
         value_names = (
-            'item__targetID', 'score', 'rank',
-            'start_time', 'end_time', 'createdBy',
+            'item__targetID', 'score', 'errors', 'start_time', 'end_time', 'createdBy',
             'item__itemID', 'item__metadata__market__sourceLanguageCode',
             'item__metadata__market__targetLanguageCode',
             'item__metadata__market__domainName', 'item__itemType',
             'task__id', 'task__campaign__campaignName'
         )
         for result in qs.values_list(*value_names):
+
             systemID = result[0]
             score = result[1]
-            rank = result[2]
+            errors = result[2]
             start_time = result[3]
             end_time = result[4]
             duration = round(float(end_time)-float(start_time), 1)
@@ -713,12 +517,12 @@ class DataAssessmentResult(BaseMetadata):
 
             system_scores[marketID+'-'+domainName].append(
                 (taskID, systemID, username, useremail, usergroups,
-                segmentID, score, rank, start_time, end_time, duration,
+                segmentID, score, start_time, end_time, duration,
                 itemType, campaignName))
 
         # TODO: this is very intransparent... and needs to be fixed!
         x = system_scores
-        s = ['taskID,systemID,username,email,groups,segmentID,score,rank,startTime,endTime,durationInSeconds,itemType,campaignName']
+        s = ['taskID,systemID,username,email,groups,segmentID,score,startTime,endTime,durationInSeconds,itemType,campaignName']
         for l in x:
             for i in x[l]:
                 s.append(','.join([str(a) for a in i]))
@@ -737,42 +541,41 @@ class DataAssessmentResult(BaseMetadata):
         qs = cls.objects.filter(completed=True)
 
         value_names = (
-            'item__targetID', 'score', 'rank',
-            'start_time', 'end_time', 'createdBy',
+            'item__targetID', 'score', 'start_time', 'end_time', 'createdBy',
             'item__itemID', 'item__metadata__market__sourceLanguageCode',
             'item__metadata__market__targetLanguageCode',
             'item__metadata__market__domainName', 'item__itemType'
         )
         for result in qs.values_list(*value_names):
-            if not domain == result[9] \
-            or not srcCode == result[7] \
-            or not tgtCode == result[8]:
+
+            if not domain == result[8] \
+            or not srcCode == result[6] \
+            or not tgtCode == result[7]:
                 continue
 
             systemID = result[0]
             score = result[1]
-            rank = result[2]
-            start_time = result[3]
-            end_time = result[4]
+            start_time = result[2]
+            end_time = result[3]
             duration = round(float(end_time)-float(start_time), 1)
-            annotatorID = result[5]
-            segmentID = result[6]
-            marketID = '{0}-{1}'.format(result[7], result[8])
-            domainName = result[9]
-            itemType = result[10]
+            annotatorID = result[4]
+            segmentID = result[5]
+            marketID = '{0}-{1}'.format(result[6], result[7])
+            domainName = result[8]
+            itemType = result[9]
             user = User.objects.get(pk=annotatorID)
             username = user.username
             useremail = user.email
             system_scores[marketID+'-'+domainName].append(
                 (systemID, username, useremail, segmentID, score,
-                rank, duration, itemType))
+                duration, itemType))
 
         return system_scores
 
     @classmethod
     def write_csv(cls, srcCode, tgtCode, domain, csvFile, allData=False):
         x = cls.get_csv(srcCode, tgtCode, domain)
-        s = ['username,email,segmentID,score,rank,durationInSeconds,itemType']
+        s = ['username,email,segmentID,score,durationInSeconds,itemType']
         if allData:
             s[0] = 'systemID,' + s[0]
 
@@ -789,144 +592,3 @@ class DataAssessmentResult(BaseMetadata):
                 outfile.write(c)
                 outfile.write('\n')
 
-    @classmethod
-    def get_system_scores(cls, campaign_id):
-        system_scores = defaultdict(list)
-
-        value_types = ('TGT', 'CHK')
-        qs = cls.objects.filter(
-            completed=True, item__itemType__in=value_types)
-
-        # If campaign ID is given, only return results for this campaign.
-        if campaign_id:
-            qs = qs.filter(task__campaign__id=campaign_id)
-
-        value_names = (
-            'item__targetID', 'item__itemID', 'score'
-        )
-        for result in qs.values_list(*value_names):
-            #if not result.completed or result.item.itemType not in ('TGT', 'CHK'):
-            #    continue
-
-            system_ids = result[0].split('+') #result.item.targetID.split('+')
-            segment_id = result[1]
-            score = result[2] #.score
-
-            for system_id in system_ids:
-                system_scores[system_id].append((segment_id, score))
-
-        return system_scores
-
-
-    @classmethod
-    def get_system_data(
-        cls,
-        campaign_id,
-        extended_csv=False,
-        expand_multi_sys=True,
-        include_inactive=False,
-        add_batch_info=False,
-    ):
-        system_data = []
-
-        item_types = ('TGT', 'CHK')
-        if extended_csv:
-            item_types += ('BAD', 'REF')
-
-        qs = cls.objects.filter(completed=True, item__itemType__in=item_types)
-
-        # If campaign ID is given, only return results for this campaign.
-        if campaign_id:
-            qs = qs.filter(task__campaign__id=campaign_id)
-
-        if not include_inactive:
-            qs = qs.filter(createdBy__is_active=True)
-
-        attributes_to_extract = (
-          'createdBy__username',            # User ID
-          'item__documentDomain',           # Document domain
-          'item__targetURL',                # Document URL
-          'item__targetID',                 # System ID
-          'item__itemID',                   # Segment ID
-          'item__itemType',                 # Item type
-          'item__metadata__market__sourceLanguageCode', # Source language
-          'item__metadata__market__targetLanguageCode', # Target language
-          'score',                          # Score
-          'rank'                            # Rank
-        )
-
-        if extended_csv:
-            attributes_to_extract = attributes_to_extract + (
-              'start_time',                 # Start time
-              'end_time'                    # End time
-            )
-
-        if add_batch_info:
-            attributes_to_extract = attributes_to_extract + (
-              'task__batchNo',  # Batch number
-              'item_id'         # Real item ID
-            )
-
-        for result in qs.values_list(*attributes_to_extract):
-            user_id = result[0]
-
-            _fixed_ids = result[1].replace(
-              'Transformer+R2L', 'Transformer_R2L'
-            )
-            _fixed_ids = _fixed_ids.replace(
-              'R2L+Back', 'R2L_Back'
-            )
-
-            if expand_multi_sys:
-                system_ids = _fixed_ids.split('+')
-
-                for system_id in system_ids:
-                    data = (user_id,) + (system_id,) + result[2:]
-                    system_data.append(data)
-
-            else:
-                system_id = _fixed_ids
-                data = (user_id,) + (system_id,) + result[2:]
-                system_data.append(data)
-
-        return system_data
-
-
-    @classmethod
-    def get_system_status(cls, campaign_id=None, sort_index=3):
-        system_scores = cls.get_system_scores(campaign_id=None)
-        non_english_codes = ('cs', 'de', 'fi', 'lv', 'tr', 'tr', 'ru', 'zh')
-
-        codes = ['en-{0}'.format(x) for x in non_english_codes] \
-          + ['{0}-en'.format(x) for x in non_english_codes]
-
-        data = {}
-        for code in codes:
-            data[code] = {}
-            for key in [x for x in system_scores if code in x]:
-                data[code][key] = system_scores[key]
-
-        output_data = {}
-        for code in codes:
-            total_annotations = sum([len(x) for x in data[code].values()])
-            output_local = []
-            for key in data[code]:
-                x = data[code][key]
-                z = sum(x)/total_annotations
-                output_local.append((key, len(x), sum(x)/len(x), z))
-
-            output_data[code] = list(sorted(output_local,
-                key=lambda x: x[sort_index], reverse=True))
-
-        return output_data
-
-    @classmethod
-    def completed_results_for_user_and_campaign(cls, user, campaign):
-        results = cls.objects.filter(
-          activated=False,
-          completed=True,
-          createdBy=user,
-          task__campaign=campaign
-        ).values_list('item_id', flat=True)
-
-        return len(set(results))

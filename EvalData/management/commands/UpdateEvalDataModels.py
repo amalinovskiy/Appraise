@@ -31,15 +31,15 @@ from EvalData.models import (
     PairwiseAssessmentTask,
     PairwiseAssessmentResult,
     TextSegmentWithTwoTargets,
-)
+    DirectAssessmentWithErrorAnnotationTask, DirectAssessmentWithErrorAnnotationResult)
 
 MODEL_DEFINITIONS = (
     (
-        DataAssessmentTask,
-        DataAssessmentResult,
+        DirectAssessmentWithErrorAnnotationTask,
+        DirectAssessmentWithErrorAnnotationResult,
         TextPairWithDomain,
-        'evaldata_dataassessmenttasks',
-        'evaldata_dataassessmentresults',
+        'evaldata_directassessmentwitherrorannotationtasks',
+        'evaldata_directassessmentwitherrorannotationresults',
     ),
     (
         DirectAssessmentTask,

@@ -7,7 +7,6 @@ See LICENSE for usage details
 from datetime import datetime
 from datetime import timedelta
 from traceback import format_exc
-from typing import Set
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -16,8 +15,6 @@ from django.utils.text import format_lazy as f
 from django.utils.timezone import utc
 from django.utils.translation import ugettext_lazy as _
 
-# TODO: Unclear if these are needed?
-# from Appraise.settings import STATIC_URL, BASE_CONTEXT
 from Appraise.utils import _get_logger
 
 MAX_DOMAINNAME_LENGTH = 20
@@ -92,6 +89,7 @@ class ObjectID(models.Model):
             from EvalData.models import (
                 DataAssessmentTask,
                 DirectAssessmentTask,
+                DirectAssessmentWithErrorAnnotationTask,
                 DirectAssessmentContextTask,
                 DirectAssessmentDocumentTask,
                 MultiModalAssessmentTask,

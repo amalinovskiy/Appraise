@@ -109,6 +109,7 @@ class TrustedUserAdmin(admin.ModelAdmin):
       }),
     )
 
+
 admin.site.register(CampaignTeam, CampaignTeamAdmin)
 admin.site.register(CampaignData, CampaignDataAdmin)
 admin.site.register(Campaign, CampaignAdmin)

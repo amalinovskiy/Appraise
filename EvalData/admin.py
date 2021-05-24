@@ -9,7 +9,8 @@ from django.contrib import admin, messages
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils.timezone import utc
-from .models import Market, Metadata, TextSegment, TextPair, TextPairWithImage
+from .models import Market, Metadata, TextSegment, TextPair, TextPairWithImage, DirectAssessmentWithErrorAnnotationTask, \
+    DirectAssessmentWithErrorAnnotationResult, TextPairWithDomain
 from .models import TextPairWithContext, TextSegmentWithTwoTargets
 from .models import DataAssessmentTask, DataAssessmentResult
 from .models import DirectAssessmentTask, DirectAssessmentResult
@@ -211,13 +212,13 @@ class TextPairAdmin(BaseMetadataAdmin):
     ) + BaseMetadataAdmin.fieldsets
 
 
-class TextPairAdmin(BaseMetadataAdmin):
+class TextPairWithDomainAdmin(BaseMetadataAdmin):
     """
-    Model admin for TextPair instances.
+    Model admin for TextPairWithDOmain instances.
     """
     list_display = [
-      '__str__', 'itemID', 'itemType', 'sourceID', 'sourceText', 'targetID',
-      'targetText'
+      '__str__', 'itemID', 'itemType', 'sourceID', 'sourceText', 'sourceURL', 'targetID',
+      'targetText', 'targetURL'
     ] + BaseMetadataAdmin.list_display
     list_filter = [
       'metadata__corpusName', 'metadata__versionInfo',
@@ -233,7 +234,7 @@ class TextPairAdmin(BaseMetadataAdmin):
     fieldsets = (
       (None, {
         'fields': (['metadata', 'itemID', 'itemType', 'sourceID',
-          'sourceText', 'targetID', 'targetText'])
+          'sourceText', 'sourceURL', 'targetID', 'targetText', 'targetURL'])
       }),
     ) + BaseMetadataAdmin.fieldsets
 
@@ -347,6 +348,56 @@ class DirectAssessmentResultAdmin(BaseMetadataAdmin):
       })
     ) + BaseMetadataAdmin.fieldsets
 
+
+class DirectAssessmentWithErrorAnnotationTaskAdmin(BaseMetadataAdmin):
+    """
+    Model admin for DirectAssessmentWithErrorAnnotationTask instances.
+    """
+    list_display = [
+      'dataName', 'batchNo', 'campaign', 'requiredAnnotations', 'activated'
+    ] + BaseMetadataAdmin.list_display
+    list_filter = [
+      'campaign__campaignName',
+      'campaign__batches__market__targetLanguageCode',
+      'campaign__batches__market__sourceLanguageCode', 'batchData'
+    ] + BaseMetadataAdmin.list_filter
+    search_fields = [
+      'campaign__campaignName', 'assignedTo'
+    ] + BaseMetadataAdmin.search_fields
+
+    fieldsets = (
+      (None, {
+        'fields': (['batchData', 'batchNo', 'campaign', 'requiredAnnotations', 'assignedTo'])
+      }),
+    ) + BaseMetadataAdmin.fieldsets
+
+
+class DirectAssessmentWithErrorAnnotationResultAdmin(BaseMetadataAdmin):
+    """
+    Model admin for DirectAssessmentWithErrorAnnotationResult instances.
+    """
+    list_display = [
+      '__str__', 'score', 'errors', 'start_time', 'end_time', 'duration', 'item_type'
+    ] + BaseMetadataAdmin.list_display
+    list_filter = [
+      'item__itemType', 'task__completed'
+    ] + BaseMetadataAdmin.list_filter
+    search_fields = [
+      # nothing model specific
+    ] + BaseMetadataAdmin.search_fields
+
+    readonly_fields = ('item', 'task')
+
+    fieldsets = (
+      (None, {
+        'fields': (['score', 'errors', 'start_time', 'end_time'])
+      }),
+      ('Related', {
+        'fields': (['item', 'task'])
+      })
+    ) + BaseMetadataAdmin.fieldsets
+
+
 class DirectAssessmentContextTaskAdmin(BaseMetadataAdmin):
     """
     Model admin for DirectAssessmentContextTask instances.
@@ -369,6 +420,7 @@ class DirectAssessmentContextTaskAdmin(BaseMetadataAdmin):
         'requiredAnnotations', 'assignedTo'])
       }),
     ) + BaseMetadataAdmin.fieldsets
+
 
 class DirectAssessmentContextResultAdmin(BaseMetadataAdmin):
     """
@@ -617,6 +669,7 @@ admin.site.register(Market, MarketAdmin)
 admin.site.register(Metadata, MetadataAdmin)
 admin.site.register(TextSegment, TextSegmentAdmin)
 admin.site.register(TextPair, TextPairAdmin)
+admin.site.register(TextPairWithDomain, TextPairWithDomainAdmin)
 admin.site.register(TextPairWithContext, TextPairWithContextAdmin)
 admin.site.register(TextPairWithImage, TextPairWithImageAdmin)
 admin.site.register(TextSegmentWithTwoTargets, TextSegmentWithTwoTargetsAdmin)
@@ -624,6 +677,8 @@ admin.site.register(DataAssessmentTask, DataAssessmentTaskAdmin)
 admin.site.register(DataAssessmentResult, DataAssessmentResultAdmin)
 admin.site.register(DirectAssessmentTask, DirectAssessmentTaskAdmin)
 admin.site.register(DirectAssessmentResult, DirectAssessmentResultAdmin)
+admin.site.register(DirectAssessmentWithErrorAnnotationTask, DirectAssessmentWithErrorAnnotationTaskAdmin)
+admin.site.register(DirectAssessmentWithErrorAnnotationResult, DirectAssessmentWithErrorAnnotationResultAdmin)
 admin.site.register(DirectAssessmentContextTask, DirectAssessmentContextTaskAdmin)
 admin.site.register(DirectAssessmentContextResult, DirectAssessmentContextResultAdmin)
 admin.site.register(DirectAssessmentDocumentTask, DirectAssessmentDocumentTaskAdmin)

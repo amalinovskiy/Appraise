@@ -14,6 +14,7 @@ from django.utils.translation import ugettext_lazy as _
 
 # TODO: Unclear if these are needed?
 # from Appraise.settings import STATIC_URL, BASE_CONTEXT
+from EvalData.models import DirectAssessmentWithErrorAnnotationResult
 from EvalData.models.base_models import ObjectID
 from EvalData.models.direct_assessment import DirectAssessmentResult
 from EvalData.models.direct_assessment import DirectAssessmentTask
@@ -158,6 +159,7 @@ class TaskAgenda(models.Model):
         """
         type_to_result_class_mapping = {
             'DirectAssessmentTask': DirectAssessmentResult,
+            'DirectAssessmentWithErrorAnnotationTask': DirectAssessmentWithErrorAnnotationResult,
             'DirectAssessmentContextTask': DirectAssessmentContextResult,
             'DirectAssessmentDocumentTask': DirectAssessmentDocumentResult,
             'MultiModalAssessmentTask': MultiModalAssessmentResult,

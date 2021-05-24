@@ -1,0 +1,12 @@
+{
+    "CAMPAIGN_URL": "http://127.0.0.1:8000/dashboard/sso/",
+    "CAMPAIGN_NAME": "explainable_quality_estimation",
+    "CAMPAIGN_KEY": "c1",
+    "CAMPAIGN_NO": 1,
+    "REDUNDANCY": 3,
+
+    "TASKS_TO_ANNOTATORS": [
+        ["est", "eng", "uniform",  3, 3]
+    ],
+    "TASK_TYPE": "DirectWithErrors"
+}
