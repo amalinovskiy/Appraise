@@ -533,7 +533,8 @@ def direct_assessment_with_error_annotation(request, code=None, campaign_name=No
     t2 = datetime.now()
     if request.method == "POST":
         score = request.POST.get('score', None)
-        errors = request.POST.get('errors', None)
+        reference_errors = request.POST.get('reference_errors', None)
+        translation_errors = request.POST.get('translation_errors', None)
         item_id = request.POST.get('item_id', None)
         task_id = request.POST.get('task_id', None)
         start_timestamp = request.POST.get('start_timestamp', None)
@@ -563,7 +564,8 @@ def direct_assessment_with_error_annotation(request, code=None, campaign_name=No
                 # pylint: disable=E1101
                 DirectAssessmentWithErrorAnnotationResult.objects.create(
                     score=score,
-                    errors=errors,
+                    reference_errors=reference_errors,
+                    translation_errors=translation_errors,
                     start_time=float(start_timestamp),
                     end_time=float(end_timestamp),
                     item=current_item,
@@ -595,17 +597,19 @@ def direct_assessment_with_error_annotation(request, code=None, campaign_name=No
     reference_label = 'Reference text'
     candidate_label = 'Candidate translation'
     priming_question_text = (
-        'How accurately does the above candidate text convey the original '
-        'semantics of the reference text? Slider ranges from '
-        '<em>Not at all</em> (left) to <em>Perfectly</em> (right).'
+        'Evaluate the quality of the translation using the scale '
+        'from <strong>Worst (Left)</strong> to <strong>Best (Right)</strong>.'
     )
-
+    source_context = f'<a href="https://et.wikipedia.org/wiki/{current_item.sourceURL}" target="_blank">' \
+                     f'{current_item.sourceURL}</a>'
     context = {
         'active_page': 'direct-assessment-with-error-annotation',
         'reference_label': reference_label,
         'reference_text': current_item.sourceText,
         'candidate_label': candidate_label,
         'candidate_text': current_item.targetText,
+        'source_context': source_context,
+        'context_label': 'Wikipedia article with the context of the translation',
         'priming_question_text': priming_question_text,
         'item_id': current_item.itemID,
         'task_id': current_item.id,

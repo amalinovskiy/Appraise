@@ -18,22 +18,63 @@
 <script src="{% static 'EvalView/js/jquery-ui.min.js' %}"></script>
 <script>
 <!--
-String.prototype.rot13 = function() {
-  return this.replace(/[a-zA-Z]/g, function(c) {
-    return String.fromCharCode((c <= "Z" ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26);
-  });
-};
-
 $(document).ready(function() {
   $('input[name="start_timestamp"]').val(Date.now()/1000.0);
   $('#slider').slider({orientation: "horizontal", range: "min", change: update_score});
   $('input[name="score"]').val(-1);
+  $('input[name="translation_errors"]').val('');
+  $('input[name="reference_errors"]').val('');
 
-  var $a = $('#id_candidate_text').attr('data-pseudo-content');
-  $('#id_candidate_text').attr('data-pseudo-content', $a.rot13());
-  alert($a);
+  $('strong.reference').each(function() {
+      var $this = $(this);
+      $this.html($this.text().replace(/(^|\s*)([^\s]+)($|\s*)/g, "$1<span>$2</span>$3"));
+  });
+
+  $('strong.reference span').click(
+      function() {
+          $(this).css('background-color','rgba(0, 0, 255, 0.3)');
+          var index = get_node_index(this);
+          errors_input = $('input[name="reference_errors"]');
+          errors = errors_input.val()
+          errors_input.val(errors === '' ? index : errors + '|' + index)
+      }
+  );
+
+  $('strong.translation').each(function() {
+      var $this = $(this);
+      $this.html($this.text().replace(/(^|\s*)([^\s]+)($|\s*)/g, "$1<span>$2</span>$3"));
+  });
+
+  $('strong.translation span').click(
+      function() {
+          $(this).css('background-color','rgba(255, 0, 0, 0.3)');
+          var index = get_node_index(this);
+          errors_input = $('input[name="translation_errors"]');
+          errors = errors_input.val()
+          errors_input.val(errors === '' ? index : errors + '|' + index)
+      }
+  );
+
+  $('input[name="score"]').change(
+      function() {
+          var value = $(this).val();
+          var description = $('#quality_description')
+          if (value > 0 && value < 10) description.text("MT does not convey any part of the meaning");
+          if (value >= 10 && value < 30) description.text("MT contains a few correct words");
+          if (value >= 30 && value < 50) description.text("MT conveys some parts of the meaning of the source");
+          if (value >= 50 && value < 70) description.text("MT is understandable and conveys the overall meaning");
+          if (value >= 70 && value < 90) description.text("MT closely preserves the meaning of the source");
+          if (value >= 90 && value <= 100) description.text("Perfect translation");
+      }
+  )
+
 });
 
+function get_node_index(node)
+{
+  var siblings = Array.from(node.parentNode.childNodes);
+  return Array.prototype.indexOf.call(siblings.filter(sibling => sibling.nodeName === 'SPAN'), node);
+}
 
 function add_end_timestamp()
 {
@@ -45,6 +86,15 @@ function reset_form()
   $('input[name="start_timestamp"]').val(Date.now()/1000.0);
   $('#slider').slider('option', 'value', 0);
   $('input[name="score"]').val(-1);
+  $('#quality_description').text('Not evaluated')
+  $('input[name="translation_errors"]').val('');
+  $('input[name="reference_errors"]').val('');
+  $('strong.reference span').each(function () {
+    $(this).css('background-color','#ffffff');
+  });
+  $('strong.translation span').each(function () {
+    $(this).css('background-color','#ffffff');
+  });
 }
 
 function validate_form()
@@ -62,7 +112,7 @@ function validate_form()
 function update_score()
 {
   var new_score = $('#slider').slider('value');
-  $('input[name="score"]').val(new_score);
+  $('input[name="score"]').val(new_score).trigger('change');
 }
 -->
 </script>
@@ -78,31 +128,20 @@ function update_score()
   <table style="width:100%">
   <tr>
     <td style="width:33%;text-align:left;">
-      <strong id="task_progress">{% if trusted_user %}<span class="glyphicon glyphicon-ok-sign" aria-hidden="true"></span> {% endif %}{{completed_blocks}}/10 blocks, {{items_left_in_block}} items left in block</strong>
+      <strong id="task_progress">{% if trusted_user %}<span class="glyphicon glyphicon-ok-sign" aria-hidden="true"></span> {% endif %}{{completed_blocks}}/100 blocks, {{items_left_in_block}} items left in block</strong>
     </td>
-    <td style="width:33%;text-align:center;">
+    <td style="width:66%;text-align:center;">
       <strong>{{campaign}} #{{datask_id}}:Segment #{{item_id}}</strong>
-    </td>
-    <td style="width:33%;text-align:right;">
-      <strong>{% if source_language %}{{source_language}} &rarr; {% endif %}{{target_language}}</strong>
     </td>
   </tr>
   </table>
 </div>
 
-<!--
-<div class="row">
-<div class="col-sm-12">
-<emph>MAGIC QUESTION GOES HERE AT SOME POINT</emph>
-</div>
-</div>
--->
-
 <div class="row">
 <div class="col-sm-12">
 <blockquote>
-<p><strong>{{reference_text|safe}}</strong></p>
-<small>{{reference_label}}</small>
+<p><strong class="reference">{{reference_text|safe}}</strong></p>
+<small>{{reference_label}} - click on the words corresponding to the errors in the translation</small>
 </blockquote>
 </div>
 </div>
@@ -112,14 +151,24 @@ function update_score()
 <input name="task_id" type="hidden" value="{{task_id}}" />
 <input name="start_timestamp" type="hidden" value="" />
 <input name="score" type="hidden" value="-1" />
-<input name="errors" type="hidden" value="" />
+<input name="reference_errors" type="hidden" value="" />
+<input name="translation_errors" type="hidden" value="" />
 
 <span id="candidate">
 <div class="row">
 <div class="col-sm-12">
 <blockquote>
-<p><strong>{{candidate_text|safe}}</strong></p>
-<small>{{candidate_label}}</small>
+<p><strong class="translation">{{candidate_text|safe}}</strong></p>
+<small>{{candidate_label}} - click on the words corresponding to the errors in the translation</small>
+</blockquote>
+</div>
+</div>
+
+<div class="row">
+<div class="col-sm-12">
+<blockquote>
+<p><strong class="context">{{source_context|safe}}</strong></p>
+<small>{{context_label}}</small>
 </blockquote>
 </div>
 </div>
@@ -128,9 +177,12 @@ function update_score()
 <div class="col-sm-12">
   <table class="col-sm-12" style="color: #777;">
   <tr>
-    <td style="width:25%;text-align: right;">|</td>
-    <td style="width:25%;text-align: right;">|</td>
-    <td style="width:25%;text-align: right;">|</td>
+    <td style="width:10%;text-align: right;">|</td>
+    <td style="width:20%;text-align: right;">|</td>
+    <td style="width:20%;text-align: right;">|</td>
+    <td style="width:20%;text-align: right;">|</td>
+    <td style="width:20%;text-align: right;">|</td>
+    <td style="width:10%;text-align: right;"></td>
     <td>&nbsp;</td>
   </tr>
 </table>
@@ -138,6 +190,8 @@ function update_score()
 <div class="col-sm-12">
 <blockquote>
 <div id="slider"></div>
+<div style="margin-top: 10px">Selected quality: <strong id="quality_description">Not evaluated</strong></div>
+<br/>
 <small>{{priming_question_text|safe}}</small>
 </blockquote>
 </div>

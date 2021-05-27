@@ -311,9 +311,16 @@ class DirectAssessmentWithErrorAnnotationResult(BaseMetadata):
       help_text=_('(value in range=[1,100])')
     )
 
-    errors = models.TextField(
-        verbose_name=_('Words with Errors'),
-        help_text=_('(0 based word indexes of errors)')
+    reference_errors = models.TextField(
+        verbose_name=_('Words in reference corresponding with translation errors'),
+        help_text=_('(0 based word indexes of errors)'),
+        default=""
+    )
+
+    translation_errors = models.TextField(
+        verbose_name=_('Words in translation corresponding with translation errors'),
+        help_text=_('(0 based word indexes of errors)'),
+        default=""
     )
 
     start_time = models.FloatField(
@@ -476,27 +483,28 @@ class DirectAssessmentWithErrorAnnotationResult(BaseMetadata):
         qs = cls.objects.filter(completed=True)
 
         value_names = (
-            'item__targetID', 'score', 'errors', 'start_time', 'end_time', 'createdBy',
+            'item__targetID', 'score', 'reference_errors', 'translation_errors', 'start_time', 'end_time', 'createdBy',
             'item__itemID', 'item__metadata__market__sourceLanguageCode',
             'item__metadata__market__targetLanguageCode',
             'item__metadata__market__domainName', 'item__itemType',
             'task__id', 'task__campaign__campaignName'
         )
-        for result in qs.values_list(*value_names):
 
+        for result in qs.values_list(*value_names):
             systemID = result[0]
             score = result[1]
-            errors = result[2]
-            start_time = result[3]
-            end_time = result[4]
+            reference_errors = result[2]
+            translation_errors = result[3]
+            start_time = result[4]
+            end_time = result[5]
             duration = round(float(end_time)-float(start_time), 1)
-            annotatorID = result[5]
-            segmentID = result[6]
-            marketID = '{0}-{1}'.format(result[7], result[8])
-            domainName = result[9]
-            itemType = result[10]
-            taskID = result[11]
-            campaignName = result[12]
+            annotatorID = result[6]
+            segmentID = result[7]
+            marketID = '{0}-{1}'.format(result[8], result[9])
+            domainName = result[10]
+            itemType = result[11]
+            taskID = result[12]
+            campaignName = result[13]
 
             if annotatorID in user_data:
                 username = user_data[annotatorID][0]
@@ -517,12 +525,12 @@ class DirectAssessmentWithErrorAnnotationResult(BaseMetadata):
 
             system_scores[marketID+'-'+domainName].append(
                 (taskID, systemID, username, useremail, usergroups,
-                segmentID, score, start_time, end_time, duration,
+                segmentID, score, reference_errors, translation_errors, start_time, end_time, duration,
                 itemType, campaignName))
 
         # TODO: this is very intransparent... and needs to be fixed!
         x = system_scores
-        s = ['taskID,systemID,username,email,groups,segmentID,score,startTime,endTime,durationInSeconds,itemType,campaignName']
+        s = ['taskID,systemID,username,email,groups,segmentID,score,referenceErrors,translationErrors,startTime,endTime,durationInSeconds,itemType,campaignName']
         for l in x:
             for i in x[l]:
                 s.append(','.join([str(a) for a in i]))
@@ -541,7 +549,7 @@ class DirectAssessmentWithErrorAnnotationResult(BaseMetadata):
         qs = cls.objects.filter(completed=True)
 
         value_names = (
-            'item__targetID', 'score', 'start_time', 'end_time', 'createdBy',
+            'item__targetID', 'score', 'reference_errors', 'translation_errors', 'start_time', 'end_time', 'createdBy',
             'item__itemID', 'item__metadata__market__sourceLanguageCode',
             'item__metadata__market__targetLanguageCode',
             'item__metadata__market__domainName', 'item__itemType'
@@ -555,19 +563,21 @@ class DirectAssessmentWithErrorAnnotationResult(BaseMetadata):
 
             systemID = result[0]
             score = result[1]
-            start_time = result[2]
-            end_time = result[3]
+            reference_errors = result[2]
+            translation_errors = result[3]
+            start_time = result[4]
+            end_time = result[5]
             duration = round(float(end_time)-float(start_time), 1)
-            annotatorID = result[4]
-            segmentID = result[5]
-            marketID = '{0}-{1}'.format(result[6], result[7])
-            domainName = result[8]
-            itemType = result[9]
+            annotatorID = result[6]
+            segmentID = result[7]
+            marketID = '{0}-{1}'.format(result[8], result[9])
+            domainName = result[10]
+            itemType = result[11]
             user = User.objects.get(pk=annotatorID)
             username = user.username
             useremail = user.email
             system_scores[marketID+'-'+domainName].append(
-                (systemID, username, useremail, segmentID, score,
+                (systemID, username, useremail, segmentID, score, reference_errors, translation_errors,
                 duration, itemType))
 
         return system_scores
@@ -575,7 +585,7 @@ class DirectAssessmentWithErrorAnnotationResult(BaseMetadata):
     @classmethod
     def write_csv(cls, srcCode, tgtCode, domain, csvFile, allData=False):
         x = cls.get_csv(srcCode, tgtCode, domain)
-        s = ['username,email,segmentID,score,durationInSeconds,itemType']
+        s = ['username,email,segmentID,score,referenceErrors,translationErrors,durationInSeconds,itemType']
         if allData:
             s[0] = 'systemID,' + s[0]
 

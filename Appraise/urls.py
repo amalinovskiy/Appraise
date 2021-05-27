@@ -117,7 +117,7 @@ urlpatterns = [
 
     url(
         r'^direct-assessment-with-error-annotation/(?P<code>[a-z]{3})/'
-        r'(?P<campaign_name>[a-zA-Z0-9]+)/$',
+        r'(?P<campaign_name>[a-zA-Z0-9_]+)/$',
         evalview_views.direct_assessment,
         name='direct-assessment-with-error-annotation'),
 

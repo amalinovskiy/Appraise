@@ -377,7 +377,7 @@ class DirectAssessmentWithErrorAnnotationResultAdmin(BaseMetadataAdmin):
     Model admin for DirectAssessmentWithErrorAnnotationResult instances.
     """
     list_display = [
-      '__str__', 'score', 'errors', 'start_time', 'end_time', 'duration', 'item_type'
+      '__str__', 'score', 'reference_errors', 'translation_errors', 'start_time', 'end_time', 'duration', 'item_type'
     ] + BaseMetadataAdmin.list_display
     list_filter = [
       'item__itemType', 'task__completed'
@@ -390,7 +390,7 @@ class DirectAssessmentWithErrorAnnotationResultAdmin(BaseMetadataAdmin):
 
     fieldsets = (
       (None, {
-        'fields': (['score', 'errors', 'start_time', 'end_time'])
+        'fields': (['score', 'reference_errors', 'translation_errors', 'start_time', 'end_time'])
       }),
       ('Related', {
         'fields': (['item', 'task'])
