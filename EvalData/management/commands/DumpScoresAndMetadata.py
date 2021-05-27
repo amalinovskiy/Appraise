@@ -8,26 +8,25 @@ from os.path import basename
 
 # pylint: disable=E0401,W0611
 from django.core.management.base import (
-    BaseCommand,
-    CommandError,
+    BaseCommand
 )
 
-from EvalData.models import DirectAssessmentResult
+from EvalData.models import DirectAssessmentWithErrorAnnotationResult
 
 
 INFO_MSG = 'INFO: '
 WARNING_MSG = 'WARN: '
 
+
 # pylint: disable=C0111,C0330
 class Command(BaseCommand):
-    help = 'Dumps all DirectAssessmentResult scores and associated metadata'
+    help = 'Dumps all DirectAssessmentWithErrorAnnotationResult scores and associated metadata'
 
     def add_arguments(self, parser):
         parser.add_argument(
           'target_file', type=str,
           help='Path to target text file'
         )
-
 
     def handle(self, *args, **options):
         _msg = '\n[{0}]\n\n'.format(basename(__file__))
@@ -38,7 +37,7 @@ class Command(BaseCommand):
 
         self.stdout.write('\n[INIT]\n\n')
 
-        labels = DirectAssessmentResult.objects.filter(completed=True)
+        labels = DirectAssessmentWithErrorAnnotationResult.objects.filter(completed=True)
 
         blocks = 0
         total_blocks = labels.count() // 1000 + 1
@@ -61,8 +60,9 @@ class Command(BaseCommand):
             'item__targetText',
             'item__targetID',
             'score',
-            'item__metadata__market__sourceLanguageCode',
-            'item__metadata__market__targetLanguageCode',
+            'reference_errors',
+            'translation_errors',
+            'createdBy',
         )
         for label_data in labels.order_by('-id').values_list(*label_values):
             result_id = label_data[0]
@@ -75,8 +75,9 @@ class Command(BaseCommand):
             target_text = label_data[7]
             target_id = label_data[8]
             item_score = label_data[9]
-            source_language_code = label_data[10]
-            target_language_code = label_data[11]
+            reference_errors = label_data[10]
+            translation_errors = label_data[11]
+            created_by = label_data[12]
 
             data = (
                 result_id,
@@ -89,8 +90,9 @@ class Command(BaseCommand):
                 target_text, #.encode('utf-8'),
                 target_id,
                 item_score,
-                source_language_code,
-                target_language_code,
+                reference_errors,
+                translation_errors,
+                created_by
             )
             output.append(
                 data
@@ -109,12 +111,12 @@ class Command(BaseCommand):
                     lines.append('TARGET_TEXT: {0}\n'.format(data[7]))
                     lines.append('TARGET_ID: {0}\n'.format(data[8]))
                     lines.append('ITEM_SCORE: {0}\n'.format(data[9]))
-                    lines.append('SOURCE_LANGUAGE_CODE: {0}\n'.format(data[10]))
-                    lines.append('TARGET_LANGUAGE_CODE: {0}\n'.format(data[11]))
+                    lines.append('REFERENCE_ERRORS: {0}\n'.format(data[10]))
+                    lines.append('TRANSLATION_ERRORS: {0}\n'.format(data[11]))
+                    lines.append('CREATED_BY: {0}\n'.format(data[12]))
                     lines.append('-' * 10 + '\n')
                 out_file.writelines(lines)
                 output = []
-                lines = []
                 blocks += 1
                 print('{0}/{1} blocks written, {2:05.1f}% completed'.format(blocks, total_blocks, 100.0 * float(blocks)/float(total_blocks)))
 
@@ -130,12 +132,11 @@ class Command(BaseCommand):
             lines.append('TARGET_TEXT: {0}\n'.format(data[7]))
             lines.append('TARGET_ID: {0}\n'.format(data[8]))
             lines.append('ITEM_SCORE: {0}\n'.format(data[9]))
-            lines.append('SOURCE_LANGUAGE_CODE: {0}\n'.format(data[10]))
-            lines.append('TARGET_LANGUAGE_CODE: {0}\n'.format(data[11]))
+            lines.append('REFERENCE_ERRORS: {0}\n'.format(data[10]))
+            lines.append('TRANSLATION_ERRORS: {0}\n'.format(data[11]))
+            lines.append('CREATED_BY: {0}\n'.format(data[12]))
             lines.append('-' * 10 + '\n')
         out_file.writelines(lines)
-        output = []
-        lines = []
         blocks += 1
         print('{0}/{1} blocks written, {2:05.1f}% completed'.format(blocks, total_blocks, 100.0 * float(blocks)/float(total_blocks)))
 
