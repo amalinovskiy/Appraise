@@ -594,13 +594,13 @@ def direct_assessment_with_error_annotation(request, code=None, campaign_name=No
 
     t4 = datetime.now()
 
-    reference_label = 'Reference text'
-    candidate_label = 'Candidate translation'
+    reference_label = 'Source text'
+    candidate_label = 'Machine translation'
     priming_question_text = (
         'Evaluate the quality of the translation using the scale '
-        'from <strong>Worst (Left)</strong> to <strong>Best (Right)</strong>.'
+        'from <strong>Completely Incorrect</strong> to <strong>Perfect Translation</strong>.'
     )
-    source_context = f'<a href="https://et.wikipedia.org/wiki/{current_item.sourceURL}" target="_blank">' \
+    source_context = f'<a href="{current_item.sourceURL}" target="_blank">' \
                      f'{current_item.sourceURL}</a>'
     context = {
         'active_page': 'direct-assessment-with-error-annotation',

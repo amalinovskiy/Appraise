@@ -59,12 +59,12 @@ $(document).ready(function() {
       function() {
           var value = $(this).val();
           var description = $('#quality_description')
-          if (value > 0 && value < 10) description.text("MT does not convey any part of the meaning");
-          if (value >= 10 && value < 30) description.text("MT contains a few correct words");
-          if (value >= 30 && value < 50) description.text("MT conveys some parts of the meaning of the source");
-          if (value >= 50 && value < 70) description.text("MT is understandable and conveys the overall meaning");
-          if (value >= 70 && value < 90) description.text("MT closely preserves the meaning of the source");
-          if (value >= 90 && value <= 100) description.text("Perfect translation");
+          if (value > 0 && value < 10) description.text("Completely incorrect");
+          if (value >= 10 && value < 30) description.text("A few correct words, but overall meaning is different or lost");
+          if (value >= 30 && value < 50) description.text("MT conveys parts of the original sentence, but contains major errors");
+          if (value >= 50 && value < 70) description.text("MT conveys the overall meaning, but contains a few mistakes");
+          if (value >= 70 && value < 90) description.text("Original meaning is closely preserved, only minor mistakes");
+          if (value >= 90 && value <= 100) description.text("Near perfect or perfect translation");
       }
   )
 
@@ -130,8 +130,8 @@ function update_score()
     <td style="width:33%;text-align:left;">
       <strong id="task_progress">{% if trusted_user %}<span class="glyphicon glyphicon-ok-sign" aria-hidden="true"></span> {% endif %}{{completed_blocks}}/100 blocks, {{items_left_in_block}} items left in block</strong>
     </td>
-    <td style="width:66%;text-align:center;">
-      <strong>{{campaign}} #{{datask_id}}:Segment #{{item_id}}</strong>
+    <td style="width:66%;text-align:right;">
+      <strong>{{campaign}}</strong>
     </td>
   </tr>
   </table>
@@ -141,7 +141,7 @@ function update_score()
 <div class="col-sm-12">
 <blockquote>
 <p><strong class="reference">{{reference_text|safe}}</strong></p>
-<small>{{reference_label}} - click on the words corresponding to the errors in the translation</small>
+<small>{{reference_label}} - <strong>Click</strong>> on the words that explain your assessment of translation quality</small>
 </blockquote>
 </div>
 </div>
@@ -190,7 +190,7 @@ function update_score()
 <div class="col-sm-12">
 <blockquote>
 <div id="slider"></div>
-<div style="margin-top: 10px">Selected quality: <strong id="quality_description">Not evaluated</strong></div>
+<div style="margin-top: 10px"><strong id="quality_description">Not evaluated</strong></div>
 <br/>
 <small>{{priming_question_text|safe}}</small>
 </blockquote>
