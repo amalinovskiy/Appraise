@@ -12067,8 +12067,8 @@
             "batchSize": 10,
             "randomSeed": 123456,
             "requiredAnnotations": 1,
-            "sourceLanguage": "ro",
-            "targetLanguage": "en"
+            "sourceLanguage": "ron",
+            "targetLanguage": "eng"
         }
     }
 ]
