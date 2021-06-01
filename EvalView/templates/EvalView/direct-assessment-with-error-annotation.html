@@ -60,10 +60,10 @@ $(document).ready(function() {
           var value = $(this).val();
           var description = $('#quality_description')
           if (value > 0 && value < 10) description.text("Completely incorrect");
-          if (value >= 10 && value < 30) description.text("A few correct words, but overall meaning is different or lost");
-          if (value >= 30 && value < 50) description.text("MT conveys parts of the original sentence, but contains major errors");
-          if (value >= 50 && value < 70) description.text("MT conveys the overall meaning, but contains a few mistakes");
-          if (value >= 70 && value < 90) description.text("Original meaning is closely preserved, only minor mistakes");
+          if (value >= 10 && value < 30) description.text("A few correct words, but the meaning is different or lost");
+          if (value >= 30 && value < 50) description.text("Parts of the original meaning are preserved");
+          if (value >= 50 && value < 70) description.text("Translation is understandable, but contains a few mistakes");
+          if (value >= 70 && value < 90) description.text("Very good translation, only minor mistakes");
           if (value >= 90 && value <= 100) description.text("Near perfect or perfect translation");
       }
   )
